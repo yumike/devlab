@@ -4,31 +4,40 @@ set -euo pipefail
 # 1. Fix ownership of named-volume mount points (root-owned by default)
 sudo /usr/local/bin/devcontainer-prepare.sh
 
+# 2. Wire apt through the proxy sidecar at runtime. We can't do this in the
+#    Dockerfile because devcontainer features run as build-time RUN layers
+#    (before the proxy is up), and pre-baking the proxy config would break
+#    their apt-get calls. By the time post-create runs, the proxy is healthy.
+sudo tee /etc/apt/apt.conf.d/01proxy >/dev/null <<'EOF'
+Acquire::http::Proxy "http://proxy:8888";
+Acquire::https::Proxy "http://proxy:8888";
+EOF
+
 cd /workspace
 
-# 2. rust-toolchain.toml triggers rustup to install 1.95.0 lazily; make it
+# 3. rust-toolchain.toml triggers rustup to install 1.95.0 lazily; make it
 #    explicit so install errors surface here rather than at first cargo build
 rustup show
 
-# 3. cargo-llvm-cov needs the llvm-tools-preview component
+# 4. cargo-llvm-cov needs the llvm-tools-preview component
 rustup component add llvm-tools-preview
 
-# 4. Cargo dev tools (lands in rw-cargo-cache volume, persists across rebuilds)
+# 5. Cargo dev tools (lands in rw-cargo-cache volume, persists across rebuilds)
 cargo install --locked cargo-llvm-cov cargo-edit
 
-# 5. Node deps (lands in rw-node-modules volume).
+# 6. Node deps (lands in rw-node-modules volume).
 #    `npm ci` instead of `npm install` because the latter rewrites
 #    package-lock.json based on the workspace directory name (/workspace inside
 #    the container vs the bind-mount source on the host), which would dirty
 #    the working tree.
 npm ci
 
-# 6. Claude Code CLI via the official installer.
+# 7. Claude Code CLI via the official installer.
 #    Direct install rather than the claude-code devcontainer feature: that
 #    feature ships its own conflicting init-firewall.sh into /usr/local/bin/.
 curl -fsSL https://claude.ai/install.sh | bash
 
-# 7. Playwright: install chromium plus its OS package deps in one shot.
+# 8. Playwright: install chromium plus its OS package deps in one shot.
 #    Covers both `chromium` and `chromium-embedded` projects (same browser binary).
 #    Run as `vscode` (NOT prefixed with sudo) so the browser binary lands in
 #    /home/vscode/.cache/ms-playwright. Playwright self-elevates internally to

@@ -9,13 +9,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl ca-certificates zsh fzf less \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure apt to use the egress proxy at runtime. Written AFTER the build-time
-# apt-get above intentionally — Docker build uses the host network so no proxy
-# is needed during build; the dev container at runtime has no direct egress and
-# every apt invocation (devcontainer features, playwright --with-deps, ad-hoc
-# package installs) must go through the proxy sidecar.
-RUN printf 'Acquire::http::Proxy "http://proxy:8888";\nAcquire::https::Proxy "http://proxy:8888";\n' \
-    > /etc/apt/apt.conf.d/01proxy
+# NOTE: apt is NOT pointed at the proxy here. Devcontainer feature installs
+# run as build-time RUN layers, where the proxy sidecar doesn't exist yet —
+# baking the proxy config in would break feature installation. Build-time apt
+# uses the host network (fine). Runtime apt (e.g. `playwright install
+# --with-deps`) is wired to the proxy in post-create.sh once the sidecar is up.
 
 # Helper scripts: COPY into a known absolute path so postCreate can invoke them
 # without depending on the workspace.
