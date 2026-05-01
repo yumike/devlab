@@ -33,21 +33,48 @@ brokers requests, accepting only CONNECT/GET to hosts matching
 
 ## Usage
 
-Install [devpod](https://devpod.sh) (`brew install devpod`), then from the
-project workspace:
+Install [devpod](https://devpod.sh) (`brew install devpod`).
+
+devpod resolves `--devcontainer-path` *relative to the workspace folder*
+even when you pass an absolute path, so the overlay needs a foothold
+inside the project tree. One-time setup per project:
 
 ```bash
-devpod up . --devcontainer-path ~/devcontainer-overlays/rw/devcontainer.json
+cd ~/projects/oss/rwdocs/rw                       # the actual code workspace
+ln -s ~/devcontainer-overlays/rw .devcontainer-rw # symlink the overlay in
+echo '.devcontainer-rw' >> .git/info/exclude      # keep it out of git, locally
 ```
 
-Open in VS Code:
+Then bring the workspace up:
 
 ```bash
-devpod up . --ide vscode --devcontainer-path ~/devcontainer-overlays/rw/devcontainer.json
+devpod up . --devcontainer-path .devcontainer-rw/devcontainer.json
 ```
 
-devpod sets `LOCAL_WORKSPACE_FOLDER` for compose so the workspace bind-mount
-resolves to the host project directory.
+Or with VS Code:
+
+```bash
+devpod up . --ide vscode --devcontainer-path .devcontainer-rw/devcontainer.json
+```
+
+devpod sets `LOCAL_WORKSPACE_FOLDER` to the project directory (not the
+overlay) for compose substitution, so the dev container's `/workspace`
+binds to the actual code. The symlink only routes devpod to the overlay's
+`devcontainer.json` + `compose.yml` + `proxy/` files.
+
+If you need to rebuild from scratch (e.g. you've edited `compose.yml` or
+`Dockerfile`):
+
+```bash
+devpod up . --recreate --devcontainer-path .devcontainer-rw/devcontainer.json
+```
+
+If a workspace is stuck in a bad state (e.g. previous run failed mid-up):
+
+```bash
+devpod list
+devpod delete <name>
+```
 
 ## Editing the allowlist
 
