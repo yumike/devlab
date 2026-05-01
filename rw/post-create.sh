@@ -15,29 +15,43 @@ EOF
 
 cd /workspace
 
-# 3. rust-toolchain.toml triggers rustup to install 1.95.0 lazily; make it
+# 3. Bootstrap rustup if the cargo-cache volume shadowed it.
+#    The rw-cargo-cache volume mounts at /usr/local/cargo. Docker copies the
+#    image's /usr/local/cargo contents into a brand-new volume (preserving
+#    rustup from the rust feature's build-time install), but on a re-used
+#    empty volume (e.g. left behind by an earlier failed build) that copy
+#    doesn't happen and rustup goes missing. Detect and reinstall — the
+#    /usr/local/rustup toolchain dir is not volume-mounted so toolchains
+#    installed at build time are still there.
+if ! command -v rustup >/dev/null 2>&1; then
+    echo "[post-create] rustup missing (cargo-cache volume shadowed it); bootstrapping..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+        sh -s -- -y --no-modify-path --default-toolchain none
+fi
+
+# 4. rust-toolchain.toml triggers rustup to install 1.95.0 lazily; make it
 #    explicit so install errors surface here rather than at first cargo build
 rustup show
 
-# 4. cargo-llvm-cov needs the llvm-tools-preview component
+# 5. cargo-llvm-cov needs the llvm-tools-preview component
 rustup component add llvm-tools-preview
 
-# 5. Cargo dev tools (lands in rw-cargo-cache volume, persists across rebuilds)
+# 6. Cargo dev tools (lands in rw-cargo-cache volume, persists across rebuilds)
 cargo install --locked cargo-llvm-cov cargo-edit
 
-# 6. Node deps (lands in rw-node-modules volume).
+# 7. Node deps (lands in rw-node-modules volume).
 #    `npm ci` instead of `npm install` because the latter rewrites
 #    package-lock.json based on the workspace directory name (/workspace inside
 #    the container vs the bind-mount source on the host), which would dirty
 #    the working tree.
 npm ci
 
-# 7. Claude Code CLI via the official installer.
+# 8. Claude Code CLI via the official installer.
 #    Direct install rather than the claude-code devcontainer feature: that
 #    feature ships its own conflicting init-firewall.sh into /usr/local/bin/.
 curl -fsSL https://claude.ai/install.sh | bash
 
-# 8. Playwright: install chromium plus its OS package deps in one shot.
+# 9. Playwright: install chromium plus its OS package deps in one shot.
 #    Covers both `chromium` and `chromium-embedded` projects (same browser binary).
 #    Run as `vscode` (NOT prefixed with sudo) so the browser binary lands in
 #    /home/vscode/.cache/ms-playwright. Playwright self-elevates internally to
