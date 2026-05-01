@@ -1,0 +1,72 @@
+# Compose stack for the rw devcontainer overlay.
+#
+# Architecture:
+#   - `dev` runs the user's code, sits on `internal:` only (no route to the
+#     outside world).
+#   - `proxy` runs tinyproxy with a hostname allowlist. It sits on both
+#     `internal:` (so dev can reach it) and `egress:` (so it can reach the
+#     internet).
+#
+# Net effect: dev container can only talk to the outside world by sending
+# CONNECT/HTTP through the proxy, which rejects anything not on the
+# allowlist in proxy/filter.
+
+services:
+  proxy:
+    build: ./proxy
+    networks:
+      - internal
+      - egress
+    volumes:
+      - ./proxy/tinyproxy.conf:/etc/tinyproxy/tinyproxy.conf:ro
+      - ./proxy/filter:/etc/tinyproxy/filter:ro
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "8888"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Devcontainer-spec idle command — devcontainer-cli/devpod attach via exec
+    # rather than running this; it just keeps the container alive.
+    command: sleep infinity
+    networks:
+      - internal
+    volumes:
+      - "${LOCAL_WORKSPACE_FOLDER:-..}:/workspace:delegated"
+      - rw-cargo-cache:/usr/local/cargo
+      - rw-target:/workspace/target
+      - rw-node-modules:/workspace/node_modules
+      - rw-claude-config:/home/vscode/.claude
+      - rw-bash-history:/commandhistory
+    environment:
+      CLAUDE_CONFIG_DIR: /home/vscode/.claude
+      # Explicit PATH so devcontainer feature image layers can't shadow our
+      # cargo / nvm / .local/bin entries.
+      PATH: /home/vscode/.local/bin:/usr/local/cargo/bin:/usr/local/share/nvm/current/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      HTTP_PROXY: http://proxy:8888
+      HTTPS_PROXY: http://proxy:8888
+      http_proxy: http://proxy:8888
+      https_proxy: http://proxy:8888
+      NO_PROXY: localhost,127.0.0.1,proxy,.local
+      no_proxy: localhost,127.0.0.1,proxy,.local
+    depends_on:
+      proxy:
+        condition: service_healthy
+
+networks:
+  internal:
+    internal: true
+  egress: {}
+
+volumes:
+  rw-cargo-cache:
+  rw-target:
+  rw-node-modules:
+  rw-claude-config:
+  rw-bash-history:

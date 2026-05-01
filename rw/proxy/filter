@@ -1,0 +1,51 @@
+# tinyproxy hostname allowlist (POSIX extended regex, anchored).
+# Lines starting with `#` are comments. With FilterDefaultDeny Yes, anything
+# not matching here is rejected.
+
+# Ubuntu mirrors (for runtime `apt-get` — devcontainer feature installs and
+# `npx playwright install --with-deps`)
+^archive\.ubuntu\.com$
+\.archive\.ubuntu\.com$
+^security\.ubuntu\.com$
+^ports\.ubuntu\.com$
+
+# GitHub
+^github\.com$
+\.github\.com$
+\.githubusercontent\.com$
+
+# Node (devcontainer feature uses nvm; nvm fetches from nodejs.org/dist)
+^nodejs\.org$
+
+# npm registry (tarballs are served from the same host)
+^registry\.npmjs\.org$
+
+# Cargo / Rust (crates.io apex + index.crates.io + static.crates.io;
+# rust-lang.org for rustup-init, toolchains, components)
+^crates\.io$
+\.crates\.io$
+^sh\.rustup\.rs$
+\.rust-lang\.org$
+
+# Anthropic / Claude / telemetry
+\.anthropic\.com$
+^claude\.ai$
+\.claude\.ai$
+^statsig\.com$
+\.statsig\.com$
+^sentry\.io$
+\.sentry\.io$
+
+# Diagrams
+^kroki\.io$
+
+# Playwright browser downloads
+^playwright\.azureedge\.net$
+^cdn\.playwright\.dev$
+^playwright\.download\.prss\.microsoft\.com$
+
+# VS Code marketplace + extension/update payloads
+^marketplace\.visualstudio\.com$
+\.visualstudio\.com$
+^vscode\.blob\.core\.windows\.net$
+^update\.code\.visualstudio\.com$

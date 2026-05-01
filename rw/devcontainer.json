@@ -1,6 +1,12 @@
 {
   "name": "rw-personal",
-  "build": { "dockerfile": "Dockerfile" },
+
+  "dockerComposeFile": "compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+
+  "remoteUser": "vscode",
 
   "features": {
     "ghcr.io/devcontainers/features/node:1":        { "version": "20" },
@@ -8,31 +14,9 @@
     "ghcr.io/devcontainers/features/github-cli:1":  {}
   },
 
-  "remoteUser": "vscode",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
-  "workspaceFolder": "/workspace",
-
-  "mounts": [
-    "source=rw-cargo-cache,target=/usr/local/cargo,type=volume",
-    "source=rw-target,target=/workspace/target,type=volume",
-    "source=rw-node-modules,target=/workspace/node_modules,type=volume",
-    "source=rw-claude-config,target=/home/vscode/.claude,type=volume",
-    "source=rw-bash-history,target=/commandhistory,type=volume"
-  ],
-
-  "containerEnv": {
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
-    "PATH": "/home/vscode/.local/bin:/usr/local/cargo/bin:/usr/local/share/nvm/current/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-    "RW_DEVCONTAINER_FIREWALL": "${localEnv:RW_DEVCONTAINER_FIREWALL:1}"
-  },
-
-  "runArgs": ["--cap-add=NET_ADMIN", "--cap-add=NET_RAW"],
-
   "forwardPorts": [7979, 8081, 8082],
 
   "postCreateCommand": "/usr/local/bin/rw-post-create.sh",
-  "postStartCommand":  "/usr/local/bin/rw-post-start.sh",
-  "waitFor": "postStartCommand",
 
   "customizations": {
     "vscode": {
