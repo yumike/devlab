@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Defensive PATH — devpod's lifecycle hook runner doesn't reliably propagate
+# the PATH set in compose.yml's `environment:` block, so /usr/local/cargo/bin
+# (rustup, cargo) and /usr/local/share/nvm/current/bin (node, npm, npx) end
+# up missing from PATH when this script runs. Hardcode here so each step can
+# find the tools the prior step just installed.
+export PATH="/home/vscode/.local/bin:/usr/local/cargo/bin:/usr/local/share/nvm/current/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 # 1. Fix ownership of named-volume mount points (root-owned by default)
 sudo /usr/local/bin/devcontainer-prepare.sh
 
