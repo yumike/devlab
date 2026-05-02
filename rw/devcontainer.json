@@ -8,12 +8,6 @@
 
   "remoteUser": "vscode",
 
-  "features": {
-    "ghcr.io/devcontainers/features/node:1":        { "version": "20" },
-    "ghcr.io/devcontainers/features/rust:1":        { "profile": "minimal" },
-    "ghcr.io/devcontainers/features/github-cli:1":  {}
-  },
-
   "forwardPorts": [7979, 8081, 8082],
 
   "postCreateCommand": "/usr/local/bin/rw-post-create.sh",

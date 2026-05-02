@@ -39,7 +39,13 @@ services:
       - internal
     volumes:
       - "${LOCAL_WORKSPACE_FOLDER:-..}:/workspace:delegated"
-      - rw-cargo-cache:/usr/local/cargo
+      # Cache only the registry + git subdirs of CARGO_HOME, NOT the whole
+      # /usr/local/cargo. Mounting the parent shadows the base image's
+      # /usr/local/cargo/bin (rustup, cargo-llvm-cov, cargo-edit) on first
+      # container start. The subdir mounts preserve those binaries while
+      # still persisting downloaded crate sources across rebuilds.
+      - rw-cargo-registry:/usr/local/cargo/registry
+      - rw-cargo-git:/usr/local/cargo/git
       - rw-target:/workspace/target
       - rw-node-modules:/workspace/node_modules
       - rw-claude-config:/home/vscode/.claude
@@ -65,7 +71,8 @@ networks:
   egress: {}
 
 volumes:
-  rw-cargo-cache:
+  rw-cargo-registry:
+  rw-cargo-git:
   rw-target:
   rw-node-modules:
   rw-claude-config:

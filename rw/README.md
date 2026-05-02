@@ -96,16 +96,20 @@ A blocked request shows up as `Filtered connection ("...")` in the log.
 
 ## What's in the box
 
-- `Dockerfile` — Ubuntu 24.04 base + build deps (gcc, pkg-config, libssl-dev),
-  git, curl, ca-certs, zsh, fzf, less. apt is pre-configured to use the proxy
-  at runtime.
-- Devcontainer features: Node 20, Rust (minimal), GitHub CLI.
+- `Dockerfile` — thin overlay on top of
+  [`ghcr.io/yumike/devcontainer-base-image`](https://github.com/yumike/devcontainer-base-image),
+  which already contains Ubuntu 24.04 + apt build deps, rustup with the
+  default toolchain + clippy/rustfmt/llvm-tools, `cargo-llvm-cov`,
+  `cargo-edit`, Node via nvm, `gh`, and Claude Code. The overlay just adds
+  rw-specific helper scripts and the sudoers entry for the prepare script.
 - `proxy/` — tinyproxy in alpine, hostname-allowlist filter.
-- `compose.yml` — dev + proxy services, two networks, named volumes for
-  cargo cache, target dir, node_modules, Claude config, bash history.
-- `post-create.sh` — runs `rustup show`, installs `cargo-llvm-cov` /
-  `cargo-edit`, `npm ci`, `claude.ai/install.sh`, `npx playwright install
-  --with-deps chromium`. Everything goes through the proxy.
+- `compose.yml` — dev + proxy services, two networks, named volumes for the
+  cargo registry / git caches, target dir, node_modules, Claude config,
+  bash history.
+- `post-create.sh` — runs `rustup show` (resolves any rust-toolchain.toml
+  in the workspace), `npm ci`, `npx playwright install --with-deps
+  chromium`. Heavy installs are baked into the base image so postCreate is
+  fast.
 - `anthropic.claude-code` VS Code extension preinstalled.
 
 ## Caveats
@@ -125,9 +129,10 @@ A blocked request shows up as `Filtered connection ("...")` in the log.
   allowlisting prevents most exfil paths, but anything that can post to an
   allowlisted host (e.g. a gist or a GitHub issue) is still a possible
   channel. Don't mount host credentials (`~/.ssh`, cloud creds) into it.
-- **Floating tags.** Base image (`mcr.microsoft.com/devcontainers/base:ubuntu-24.04`),
-  `alpine:3.20`, and feature `:1` tags are not pinned by digest, so the build
-  is "consistent" but not bit-reproducible across long time spans.
+- **Floating tags.** The personal base image is pulled by `:latest` (which
+  rebuilds weekly via cron) and `alpine:3.20` for the proxy. Pin
+  `BASE_TAG=YYYY-MM-DD` (or a `@sha256:` digest) in the dev `Dockerfile`
+  via `--build-arg` if you want bit-reproducibility.
 
 ## Directory layout
 
@@ -135,10 +140,10 @@ A blocked request shows up as `Filtered connection ("...")` in the log.
 ~/devcontainer-overlays/rw/
 ├── README.md
 ├── compose.yml                # dev + proxy services, networks, volumes
-├── devcontainer.json          # points to compose.yml, declares features + extensions
-├── Dockerfile                 # dev container image
+├── devcontainer.json          # points to compose.yml, declares VS Code extensions
+├── Dockerfile                 # thin overlay on the personal base image
 ├── devcontainer-prepare.sh    # chowns named-volume mountpoints (called via sudo)
-├── post-create.sh             # one-time setup: rustup, cargo, npm ci, claude, playwright
+├── post-create.sh             # one-time setup: rustup show, npm ci, playwright install
 └── proxy/
     ├── Dockerfile             # alpine + tinyproxy
     ├── tinyproxy.conf         # listen on 8888, allowlist mode
