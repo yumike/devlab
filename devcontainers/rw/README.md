@@ -40,9 +40,9 @@ even when you pass an absolute path, so the overlay needs a foothold
 inside the project tree. One-time setup per project:
 
 ```bash
-cd ~/projects/oss/rwdocs/rw                       # the actual code workspace
-ln -s ~/devlab/rw .devcontainer-rw           # symlink the overlay in
-echo '.devcontainer-rw' >> .git/info/exclude # keep it out of git, locally
+cd ~/projects/oss/rwdocs/rw                              # the actual code workspace
+ln -s ~/devlab/devcontainers/rw .devcontainer-rw    # symlink the overlay in
+echo '.devcontainer-rw' >> .git/info/exclude        # keep it out of git, locally
 ```
 
 Then bring the workspace up:
@@ -82,14 +82,14 @@ Hostnames live in `proxy/filter` (POSIX extended regex, anchored, one per
 line). Comments start with `#`. To add a host:
 
 ```bash
-echo '^example\.com$' >> ~/devlab/rw/proxy/filter
-docker compose -f ~/devlab/rw/compose.yml restart proxy
+echo '^example\.com$' >> ~/devlab/devcontainers/rw/proxy/filter
+docker compose -f ~/devlab/devcontainers/rw/compose.yml restart proxy
 ```
 
 Tail the proxy's denials to figure out what to add:
 
 ```bash
-docker compose -f ~/devlab/rw/compose.yml logs -f proxy
+docker compose -f ~/devlab/devcontainers/rw/compose.yml logs -f proxy
 ```
 
 A blocked request shows up as `Filtered connection ("...")` in the log.
@@ -137,7 +137,7 @@ A blocked request shows up as `Filtered connection ("...")` in the log.
 ## Directory layout
 
 ```
-~/devlab/rw/
+~/devlab/devcontainers/rw/
 ├── README.md
 ├── compose.yml                # dev + proxy services, networks, volumes
 ├── devcontainer.json          # points to compose.yml, declares VS Code extensions
