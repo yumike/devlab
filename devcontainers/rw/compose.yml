@@ -46,7 +46,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik
-      - traefik.http.routers.rw.rule=Host(`rw.localhost`)
+      - traefik.http.routers.rw.rule=Host(`rw.test`)
       - traefik.http.services.rw.loadbalancer.server.port=7979
     volumes:
       - "${LOCAL_WORKSPACE_FOLDER:-..}:/workspace:delegated"
@@ -70,8 +70,8 @@ services:
       HTTPS_PROXY: http://proxy:8888
       http_proxy: http://proxy:8888
       https_proxy: http://proxy:8888
-      NO_PROXY: localhost,127.0.0.1,proxy,.local
-      no_proxy: localhost,127.0.0.1,proxy,.local
+      NO_PROXY: localhost,127.0.0.1,proxy,.local,.test
+      no_proxy: localhost,127.0.0.1,proxy,.local,.test
     depends_on:
       proxy:
         condition: service_healthy

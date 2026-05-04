@@ -1,0 +1,90 @@
+# Shared host-side Forgejo + Postgres for devcontainer overlay git hosting.
+#
+# Architecture:
+#   - `forgejo` runs the server. It binds port 80 internally (HTTP_PORT=80
+#     plus a sysctl that lets the non-root `git` user bind <1024). Joins
+#     `internal:` (private to this stack) to reach the DB and the external
+#     `traefik:` network for inbound HTTP. Declares a network alias
+#     `forgejo.test` on `traefik:` so any container on that network
+#     resolves the hostname directly to forgejo's container IP.
+#   - `db` runs Postgres 18, only on `internal:` (with `internal: true`,
+#     so no NAT/routing). Reachable only by `forgejo` in this stack.
+#
+# Net effect: same URL `http://forgejo.test` works in browsers (via
+# Traefik) and inside other overlays' containers (via the Docker DNS
+# alias). DB is fully isolated.
+#
+# Secrets:
+#   FORGEJO_DB_PASSWORD is sourced from 1Password. Bring the stack up
+#   with `op run --env-file=.env -- docker compose up -d`. See
+#   .env.example and README.md.
+
+name: forgejo
+
+x-db-password: &db_password ${FORGEJO_DB_PASSWORD:?run via op run --env-file=.env}
+
+services:
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:15
+    environment:
+      FORGEJO__server__HTTP_PORT: 80
+      FORGEJO__server__DOMAIN: forgejo.test
+      FORGEJO__server__ROOT_URL: http://forgejo.test/
+      FORGEJO__server__SSH_DOMAIN: forgejo.test
+      FORGEJO__server__DISABLE_SSH: "true"
+      FORGEJO__database__DB_TYPE: postgres
+      FORGEJO__database__HOST: db:5432
+      FORGEJO__database__NAME: forgejo
+      FORGEJO__database__USER: forgejo
+      FORGEJO__database__PASSWD: *db_password
+      FORGEJO__security__INSTALL_LOCK: "true"
+    sysctls:
+      - net.ipv4.ip_unprivileged_port_start=0
+    volumes:
+      - forgejo-data:/data
+    networks:
+      internal:
+      traefik:
+        aliases:
+          - forgejo.test
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.routers.forgejo.rule=Host(`forgejo.test`)
+      - traefik.http.services.forgejo.loadbalancer.server.port=80
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: forgejo
+      POSTGRES_USER: forgejo
+      POSTGRES_PASSWORD: *db_password
+    volumes:
+      # Mount at the parent dir, not /var/lib/postgresql/data — PG18
+      # uses major-version subdirs and refuses the legacy path.
+      # See README "Postgres 18+ volume mount path".
+      - forgejo-db:/var/lib/postgresql
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgejo -d forgejo"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+networks:
+  internal:
+    internal: true
+  traefik:
+    name: traefik
+    external: true
+
+volumes:
+  forgejo-data:
+  forgejo-db:
