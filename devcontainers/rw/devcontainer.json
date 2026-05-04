@@ -8,8 +8,6 @@
 
   "remoteUser": "vscode",
 
-  "forwardPorts": [7979, 8081, 8082],
-
   "postCreateCommand": "/usr/local/bin/rw-post-create.sh",
 
   "customizations": {

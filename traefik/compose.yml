@@ -1,0 +1,36 @@
+# Shared host-side Traefik for devcontainer overlay hostnames.
+#
+# Each overlay that wants to expose a service joins the external `traefik`
+# network and adds Traefik labels. This stack itself knows nothing about
+# specific overlays — the Docker provider discovers them by label.
+#
+# Create the `traefik` network once with `docker network create traefik`.
+# See README.md for the full convention and operational notes.
+
+name: traefik
+
+services:
+  traefik:
+    image: traefik:v3.6
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik
+      - --entrypoints.web.address=:80
+      - --api.dashboard=true
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)
+      - traefik.http.routers.dashboard.service=api@internal
+    restart: unless-stopped
+
+networks:
+  traefik:
+    name: traefik
+    external: true

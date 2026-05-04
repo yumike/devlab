@@ -11,6 +11,12 @@ contributors aren't paying for the extra capabilities and volumes.
 ## Architecture
 
 ```
+                  ┌────────────────┐
+                  │  traefik:      │
+                  │  external      │
+                  └───────┬────────┘
+                          │ inbound HTTP
+                          ▼
 ┌─────────────────────────────┐         ┌────────────────────┐
 │  dev (Ubuntu 24.04 +        │         │  proxy (alpine +   │
 │       node, rust, gh,       │ ──CONNECT──▶│  tinyproxy)    │
@@ -25,11 +31,32 @@ contributors aren't paying for the extra capabilities and volumes.
    └────────────────┘                    └────────────────┘
 ```
 
-The dev container is attached only to the `internal:` network, which has
+The dev container's outbound path is `internal:` only, which has
 `internal: true` set so Docker installs no NAT/routing for it — there is
-literally no path to the outside world. The proxy sits on both networks and
-brokers requests, accepting only CONNECT/GET to hosts matching
-`proxy/filter`.
+literally no outbound path to the outside world. Inbound HTTP comes in
+over `traefik:`, an external network shared with the host-side Traefik
+stack at `~/devlab/traefik/`; that direction doesn't bypass the egress
+lockdown because outbound from `dev` still has to go through `proxy` via
+`HTTP_PROXY`. The proxy sits on `internal:` and `egress:`, brokering
+requests and accepting only CONNECT/GET to hosts matching `proxy/filter`.
+
+## Access via `rw.localhost`
+
+The dev container's primary port (7979) is reached at
+<http://rw.localhost> via the shared Traefik proxy at
+`~/devlab/traefik/`. Bring that stack up before bringing the
+devcontainer up — see `~/devlab/traefik/README.md` for the
+one-time `traefik` network setup, then:
+
+    cd ~/devlab/traefik
+    docker compose up -d
+
+If `rw.localhost` returns connection refused, Traefik isn't running.
+If it returns 502, Traefik is running but the dev server inside the
+container isn't (start it with the usual project command).
+
+There are no `forwardPorts` for this overlay — Traefik is the only
+path.
 
 ## Usage
 

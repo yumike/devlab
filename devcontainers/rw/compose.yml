@@ -1,8 +1,13 @@
+name: rw
+
 # Compose stack for the rw devcontainer overlay.
 #
 # Architecture:
-#   - `dev` runs the user's code, sits on `internal:` only (no route to the
-#     outside world).
+#   - `dev` runs the user's code on `internal:` for its egress path (no
+#     route to the outside world from there). It also joins `traefik:` for
+#     inbound HTTP routing from the shared host-side reverse proxy at
+#     `~/devlab/traefik/` — egress lockdown is unaffected because outbound
+#     traffic still goes through `proxy` via `HTTP_PROXY`.
 #   - `proxy` runs tinyproxy with a hostname allowlist. It sits on both
 #     `internal:` (so dev can reach it) and `egress:` (so it can reach the
 #     internet).
@@ -37,6 +42,12 @@ services:
     command: sleep infinity
     networks:
       - internal
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.routers.rw.rule=Host(`rw.localhost`)
+      - traefik.http.services.rw.loadbalancer.server.port=7979
     volumes:
       - "${LOCAL_WORKSPACE_FOLDER:-..}:/workspace:delegated"
       # Cache only the registry + git subdirs of CARGO_HOME, NOT the whole
@@ -69,6 +80,9 @@ networks:
   internal:
     internal: true
   egress: {}
+  traefik:
+    name: traefik
+    external: true
 
 volumes:
   rw-cargo-registry:
