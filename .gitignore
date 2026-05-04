@@ -1,0 +1,6 @@
+# Per-stack secrets files. Real values live only in 1Password; the
+# .env files in compose stacks hold op:// references resolved at
+# startup by `op run --env-file=.env -- docker compose ...`.
+# See forgejo/.env.example for the pattern.
+.env
+.env.local

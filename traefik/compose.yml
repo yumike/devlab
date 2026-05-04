@@ -26,7 +26,7 @@ services:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)
+      - traefik.http.routers.dashboard.rule=Host(`traefik.test`)
       - traefik.http.routers.dashboard.service=api@internal
     restart: unless-stopped
 

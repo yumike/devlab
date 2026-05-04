@@ -40,10 +40,10 @@ lockdown because outbound from `dev` still has to go through `proxy` via
 `HTTP_PROXY`. The proxy sits on `internal:` and `egress:`, brokering
 requests and accepting only CONNECT/GET to hosts matching `proxy/filter`.
 
-## Access via `rw.localhost`
+## Access via `rw.test`
 
 The dev container's primary port (7979) is reached at
-<http://rw.localhost> via the shared Traefik proxy at
+<http://rw.test> via the shared Traefik proxy at
 `~/devlab/traefik/`. Bring that stack up before bringing the
 devcontainer up — see `~/devlab/traefik/README.md` for the
 one-time `traefik` network setup, then:
@@ -51,12 +51,48 @@ one-time `traefik` network setup, then:
     cd ~/devlab/traefik
     docker compose up -d
 
-If `rw.localhost` returns connection refused, Traefik isn't running.
+If `rw.test` returns connection refused, Traefik isn't running.
 If it returns 502, Traefik is running but the dev server inside the
 container isn't (start it with the usual project command).
 
 There are no `forwardPorts` for this overlay — Traefik is the only
 path.
+
+## Using Forgejo as the git remote
+
+The rw dev container can use the shared Forgejo at
+<http://forgejo.test> as its primary git remote (see
+`~/devlab/forgejo/`). Bring that stack up first; if it isn't running,
+clone/push from inside `dev` will fail with connection refused.
+
+    cd ~/devlab/forgejo
+    op run --env-file=.env -- docker compose up -d
+
+Clone form (works from both the host and from inside `dev` —
+same URL, same content, different network paths):
+
+    git clone http://forgejo.test/<user>/<repo>.git
+
+Push auth is via a Forgejo Personal Access Token. Create one at
+**User Settings → Applications → Generate New Token** and store it
+in 1Password. Inside `dev`:
+
+    git config --global credential.helper store
+    git push   # paste username + token when prompted; cached after
+
+Or use a `~/.netrc` entry:
+
+    machine forgejo.test
+    login <user>
+    password <PAT>
+
+For CLI-driven PR / issue / release workflows, install
+[`forgejo-cli`](https://codeberg.org/forgejo-contrib/forgejo-cli)
+(binary name `fj`) — the Forgejo-contrib `gh`-equivalent for Forgejo,
+with prebuilt Linux binaries on its releases page. Not preinstalled.
+
+There is no SSH for git here: Forgejo has SSH disabled and the rw dev
+container's tinyproxy doesn't speak SSH. Use HTTPS-style URLs.
 
 ## Usage
 
