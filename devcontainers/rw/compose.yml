@@ -1,4 +1,4 @@
-name: rw
+name: rw-${WORKTREE:?WORKTREE must be set in the worktree .env}
 
 # Compose stack for the rw devcontainer overlay.
 #
@@ -15,6 +15,33 @@ name: rw
 # Net effect: dev container can only talk to the outside world by sending
 # CONNECT/HTTP through the proxy, which rejects anything not on the
 # allowlist in proxy/filter.
+#
+# Per-worktree model: this overlay is symlinked into multiple rw worktrees
+# inside a bare-repo layout on the host:
+#
+#     ~/projects/oss/rwdocs/rw/
+#     ├── bare.git/               ← bare repo (shared object store, all git data)
+#     ├── main/                   ← worktree on `main`
+#     ├── tables/                 ← worktree (e.g. `feat/tables`)
+#     └── <slug>/                 ← worktree per branch
+#
+# Each worktree has `.devcontainer -> ~/devlab/devcontainers/rw/` and its own
+# `.env` file with `WORKTREE=<dir-basename>` and `WORKTREE_PARENT=<absolute
+# path of rw/>`. The container bind-mounts the *parent* (rw/) at /work so
+# the worktree's `.git` pointer file (which uses a relative
+# `gitdir: ../bare.git/worktrees/<name>` path — requires `git worktree add
+# --relative-paths`, git ≥ 2.48) resolves cleanly inside the container.
+# workspaceFolder is set to /work/${WORKTREE} in devcontainer.json so
+# commands run inside the active worktree.
+#
+# Caller MUST set ${WORKTREE} to the worktree dir basename. It drives the
+# compose project name (rw-<worktree>), the Traefik host (rw-<worktree>.test),
+# the per-worktree volume namespace, and the workspaceFolder path. Compose
+# hard-fails if it isn't set — silent fallback would let the volume mounts
+# diverge from devcontainer.json's workspaceFolder (which resolves from the
+# host dir basename) and quietly defeat per-worktree isolation. The cargo/
+# claude caches are declared `external` so they bypass the project prefix
+# and stay shared.
 
 services:
   proxy:
@@ -46,22 +73,40 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik
-      - traefik.http.routers.rw.rule=Host(`rw.test`)
-      - traefik.http.services.rw.loadbalancer.server.port=7979
+      - traefik.http.routers.rw-${WORKTREE:?}.rule=Host(`rw-${WORKTREE:?}.test`)
+      - traefik.http.services.rw-${WORKTREE:?}.loadbalancer.server.port=7979
     volumes:
-      - "${LOCAL_WORKSPACE_FOLDER:-..}:/workspace:delegated"
+      # Mount the rw/ parent at /work, not just the active worktree, so the
+      # worktree's `.git` pointer (`gitdir: ../bare.git/worktrees/<name>`)
+      # can resolve into the bare repo's object store inside the container.
+      # ${WORKTREE_PARENT} is set in the worktree's .env (the absolute host
+      # path of rw/). We don't reuse devpod's ${LOCAL_WORKSPACE_FOLDER}
+      # because `--workspace-env-file=.env` replaces devpod's auto-set env,
+      # so we'd end up with an empty source and a runaway `/..` mount.
+      # Side effect: the container can see sibling worktrees;
+      # workspaceFolder in devcontainer.json scopes the user to one.
+      - "${WORKTREE_PARENT:?WORKTREE_PARENT must be set in the worktree .env}:/work:delegated"
       # Cache only the registry + git subdirs of CARGO_HOME, NOT the whole
       # /usr/local/cargo. Mounting the parent shadows the base image's
       # /usr/local/cargo/bin (rustup, cargo-llvm-cov, cargo-edit) on first
       # container start. The subdir mounts preserve those binaries while
       # still persisting downloaded crate sources across rebuilds.
+      #
+      # Volumes with `rw-` prefix are declared `external` at the bottom of
+      # this file — they share state across all worktrees (cargo registry
+      # downloads, claude config & login). Volumes without a prefix
+      # (`target`, `node_modules`, `bash-history`) get auto-prefixed by the
+      # `name:` at the top (rw-${WORKTREE}), giving each worktree its own.
       - rw-cargo-registry:/usr/local/cargo/registry
       - rw-cargo-git:/usr/local/cargo/git
-      - rw-target:/workspace/target
-      - rw-node-modules:/workspace/node_modules
+      - target:/work/${WORKTREE:?}/target
+      - node_modules:/work/${WORKTREE:?}/node_modules
       - rw-claude-config:/home/vscode/.claude
-      - rw-bash-history:/commandhistory
+      - bash-history:/commandhistory
     environment:
+      # Surfaced into the container so post-create / prepare scripts can
+      # build per-worktree paths (e.g. /work/$WORKTREE/target).
+      WORKTREE: ${WORKTREE:?}
       CLAUDE_CONFIG_DIR: /home/vscode/.claude
       # Explicit PATH so devcontainer feature image layers can't shadow our
       # cargo / nvm / .local/bin entries.
@@ -85,9 +130,20 @@ networks:
     external: true
 
 volumes:
+  # Shared across all rw worktrees — declared external so they don't get the
+  # COMPOSE_PROJECT_NAME prefix that compose applies to managed volumes.
+  # Create once (`docker volume create` takes one name at a time):
+  #     for v in rw-cargo-registry rw-cargo-git rw-claude-config; do docker volume create "$v"; done
   rw-cargo-registry:
+    external: true
   rw-cargo-git:
-  rw-target:
-  rw-node-modules:
+    external: true
   rw-claude-config:
-  rw-bash-history:
+    external: true
+  # Per-worktree — compose auto-prefixes with the project `name:` above so
+  # each worktree gets its own (e.g. `rw-feature_target`). Build artifacts
+  # and node_modules differ across branches; sharing causes constant
+  # rebuilds.
+  target:
+  node_modules:
+  bash-history:

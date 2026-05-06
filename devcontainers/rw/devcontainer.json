@@ -3,7 +3,12 @@
 
   "dockerComposeFile": "compose.yml",
   "service": "dev",
-  "workspaceFolder": "/workspace",
+  // The worktree dir basename IS the worktree slug by convention — see
+  // compose.yml for the bare-repo + sibling-worktrees layout. Using the
+  // spec's ${localWorkspaceFolderBasename} (rather than ${localEnv:WORKTREE})
+  // because the latter reads from the host shell, not from the .env that
+  // `devpod up --workspace-env-file=.env` loads, so they'd disagree.
+  "workspaceFolder": "/work/${localWorkspaceFolderBasename}",
   "shutdownAction": "stopCompose",
 
   "remoteUser": "vscode",

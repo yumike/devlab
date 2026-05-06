@@ -31,6 +31,8 @@
 \.anthropic\.com$
 ^claude\.ai$
 \.claude\.ai$
+^claude\.com$
+\.claude\.com$
 ^statsig\.com$
 \.statsig\.com$
 ^sentry\.io$
