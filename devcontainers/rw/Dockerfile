@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.27
 
 # Thin overlay on top of the personal base image. Everything heavy
 # (apt deps, rustup, node via nvm, gh, cargo-llvm-cov, cargo-edit, claude
