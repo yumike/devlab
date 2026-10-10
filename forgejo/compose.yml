@@ -25,7 +25,7 @@ x-db-password: &db_password ${FORGEJO_DB_PASSWORD:?run via op run --env-file=.en
 
 services:
   forgejo:
-    image: codeberg.org/forgejo/forgejo:15
+    image: codeberg.org/forgejo/forgejo:16
     environment:
       FORGEJO__server__HTTP_PORT: 80
       FORGEJO__server__DOMAIN: forgejo.test
